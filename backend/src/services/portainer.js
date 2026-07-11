@@ -45,11 +45,13 @@ async function apiPut(endpoint, data = {}) {
 }
 
 async function getEndpoints() {
-  return apiGet('/api/endpoints');
+  const data = await apiGet('/api/endpoints');
+  return Array.isArray(data) ? data : (data.value || []);
 }
 
 async function getStacks() {
-  return apiGet('/api/stacks');
+  const data = await apiGet('/api/stacks');
+  return Array.isArray(data) ? data : (data.value || []);
 }
 
 async function getContainers(endpointId) {
