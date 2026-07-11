@@ -26,7 +26,7 @@ router.post('/', auth, async (req, res) => {
     const backup = await db.queryOne('SELECT * FROM backups WHERE id=? AND status="completed"', [backup_id]);
     if (!backup) return res.status(404).json({ error: 'Completed backup not found' });
 
-    const [result] = await db.insert(
+    const result = await db.insert(
       `INSERT INTO restore_logs (backup_id, container_portainer_id, target_portainer_url, status)
        VALUES (?, ?, ?, 'pending')`,
       [backup_id, backup.container_portainer_id, target_portainer_url || null]

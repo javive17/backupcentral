@@ -31,7 +31,7 @@ router.post('/', auth, async (req, res) => {
     const container = await db.queryOne('SELECT * FROM containers WHERE id=?', [container_id]);
     if (!container) return res.status(404).json({ error: 'Container not found' });
 
-    const [result] = await db.insert(
+    const result = await db.insert(
       `INSERT INTO backups (container_id, container_portainer_id, type, include_image, include_volumes, include_configs, include_filesystem, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
       [container_id, container.portainer_id, type, include_image, include_volumes, include_configs, include_filesystem]

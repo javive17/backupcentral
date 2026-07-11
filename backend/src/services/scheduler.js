@@ -30,7 +30,7 @@ function scheduleContainer(schedule) {
   const job = cron.schedule(schedule.cron_expression, async () => {
     console.log(`Running scheduled backup: ${schedule.name || schedule.id}`);
     try {
-      const [result] = await db.insert(
+      const result = await db.insert(
         `INSERT INTO backups (container_id, container_portainer_id, type, include_image, include_volumes, include_configs, include_filesystem, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
         [

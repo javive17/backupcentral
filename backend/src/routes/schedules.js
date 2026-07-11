@@ -34,7 +34,7 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ error: 'Invalid cron expression' });
     }
 
-    const [result] = await db.insert(
+    const result = await db.insert(
       `INSERT INTO schedules (container_id, container_portainer_id, name, cron_expression, backup_type,
         include_image, include_volumes, include_configs, include_filesystem, retention_count)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
