@@ -24,7 +24,7 @@ async function request(endpoint, options = {}) {
 
   if (res.status === 401) {
     clearToken();
-    window.location.href = '/login';
+    window.location.href = '/backupcentral/login';
     throw new Error('Unauthorized');
   }
 

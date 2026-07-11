@@ -12,7 +12,7 @@ import SchedulesPage from './pages/SchedulesPage';
 import SettingsPage from './pages/SettingsPage';
 
 function ProtectedRoute({ children }) {
-  if (!getToken()) return <Navigate to="/login" replace />;
+  if (!getToken()) return <Navigate to="/backupcentral/login" replace />;
   return children;
 }
 
