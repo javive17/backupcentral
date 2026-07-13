@@ -113,6 +113,19 @@ async function getImageInspect(endpointId, imageId) {
   return apiGet(`/api/endpoints/${endpointId}/docker/images/${imageId}/json`);
 }
 
+async function getContainerArchive(endpointId, containerId, containerPath) {
+  const token = await authenticate();
+  const res = await axios.get(
+    `${config.portainer.url}/api/endpoints/${endpointId}/docker/containers/${containerId}/archive?path=${encodeURIComponent(containerPath)}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      responseType: 'arraybuffer',
+      timeout: 300000,
+    }
+  );
+  return res.data;
+}
+
 module.exports = {
   authenticate,
   getEndpoints,
@@ -127,6 +140,7 @@ module.exports = {
   getVolumes,
   getNetworks,
   getImageInspect,
+  getContainerArchive,
   apiGet,
   apiPost,
   apiPut,

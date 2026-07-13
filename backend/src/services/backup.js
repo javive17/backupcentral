@@ -3,6 +3,7 @@ const path = require('path');
 const config = require('../config');
 const portainer = require('./portainer');
 const db = require('../db');
+const tar = require('tar');
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -143,17 +144,23 @@ async function createBackup(backupId, containerPortainerId, options = {}) {
 
       for (const mount of containerInfo.Mounts) {
         if (mount.Type === 'volume' || mount.Type === 'bind') {
-          const sourcePath = mount.Source;
-          const volName = mount.Name || sourcePath.replace(/[^a-zA-Z0-9._-]/g, '_');
+          const mountDest = mount.Destination;
+          const volName = mount.Name || mountDest.replace(/[^a-zA-Z0-9._-]/g, '_');
           const volBackup = path.join(volumesDir, volName);
 
-          if (fs.existsSync(sourcePath)) {
-            try {
-              copyDirSync(sourcePath, volBackup);
-              totalSize += dirSize(volBackup);
-            } catch (e) {
-              console.error(`Volume backup failed for ${volName}: ${e.message}`);
-            }
+          try {
+            console.log(`Fetching archive: ${containerName} -> ${mountDest}`);
+            const tarData = await portainer.getContainerArchive(endpointId, containerPortainerId, mountDest);
+            console.log(`Got ${tarData.length} bytes for ${volName}`);
+            const tarFile = path.join(backupPath, `_temp_${volName}.tar`);
+            fs.writeFileSync(tarFile, tarData);
+            ensureDir(volBackup);
+            await tar.extract({ file: tarFile, cwd: volBackup });
+            fs.unlinkSync(tarFile);
+            totalSize += dirSize(volBackup);
+            console.log(`Extracted ${volName}: ${dirSize(volBackup)} bytes`);
+          } catch (e) {
+            console.error(`Volume backup failed for ${volName}: ${e.message}`);
           }
         }
       }
