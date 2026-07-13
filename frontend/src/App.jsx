@@ -10,6 +10,8 @@ import BackupsPage from './pages/BackupsPage';
 import RestorePage from './pages/RestorePage';
 import SchedulesPage from './pages/SchedulesPage';
 import SettingsPage from './pages/SettingsPage';
+import RemoteServersPage from './pages/RemoteServersPage';
+import DatabaseServersPage from './pages/DatabaseServersPage';
 
 function ProtectedRoute({ children }) {
   if (!getToken()) return <Navigate to="/backupcentral/login" replace />;
@@ -38,6 +40,8 @@ export default function App() {
                       <Route path="/backups" element={<BackupsPage />} />
                       <Route path="/restore" element={<RestorePage />} />
                       <Route path="/schedules" element={<SchedulesPage />} />
+                      <Route path="/remote-servers" element={<RemoteServersPage />} />
+                      <Route path="/database-servers" element={<DatabaseServersPage />} />
                       <Route path="/settings" element={<SettingsPage />} />
                     </Routes>
                   </div>

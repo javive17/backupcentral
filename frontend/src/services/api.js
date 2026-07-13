@@ -72,6 +72,39 @@ export const api = {
     list: () => request('/settings'),
     update: (settings) => request('/settings', { method: 'PUT', body: JSON.stringify({ settings }) }),
   },
+  remoteConnections: {
+    list: () => request('/remote-connections'),
+    get: (id) => request(`/remote-connections/${id}`),
+    create: (data) => request('/remote-connections', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data) => request(`/remote-connections/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id) => request(`/remote-connections/${id}`, { method: 'DELETE' }),
+    test: (id) => request(`/remote-connections/${id}/test`, { method: 'POST' }),
+  },
+  remoteBackups: {
+    list: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request(`/remote-backups${qs ? `?${qs}` : ''}`);
+    },
+    create: (data) => request('/remote-backups', { method: 'POST', body: JSON.stringify(data) }),
+    delete: (id) => request(`/remote-backups/${id}`, { method: 'DELETE' }),
+  },
+  dbConnections: {
+    list: () => request('/db-connections'),
+    get: (id) => request(`/db-connections/${id}`),
+    create: (data) => request('/db-connections', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data) => request(`/db-connections/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id) => request(`/db-connections/${id}`, { method: 'DELETE' }),
+    test: (id) => request(`/db-connections/${id}/test`, { method: 'POST' }),
+    databases: (id) => request(`/db-connections/${id}/databases`),
+  },
+  dbBackups: {
+    list: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request(`/db-backups${qs ? `?${qs}` : ''}`);
+    },
+    create: (data) => request('/db-backups', { method: 'POST', body: JSON.stringify(data) }),
+    delete: (id) => request(`/db-backups/${id}`, { method: 'DELETE' }),
+  },
 };
 
 export { getToken, setToken, clearToken };

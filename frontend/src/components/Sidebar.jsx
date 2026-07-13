@@ -2,7 +2,8 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { clearToken } from '../services/api';
 import {
   LayoutDashboard, Container, HardDrive, RotateCcw,
-  Calendar, Settings, LogOut, ChevronLeft, ChevronRight, Shield
+  Calendar, Settings, LogOut, ChevronLeft, ChevronRight, Shield,
+  Server, Database
 } from 'lucide-react';
 
 const navItems = [
@@ -10,6 +11,8 @@ const navItems = [
   { to: '/containers', icon: Container, label: 'Containers' },
   { to: '/backups', icon: HardDrive, label: 'Backups' },
   { to: '/restore', icon: RotateCcw, label: 'Restore' },
+  { to: '/remote-servers', icon: Server, label: 'External Servers' },
+  { to: '/database-servers', icon: Database, label: 'Database Servers' },
   { to: '/schedules', icon: Calendar, label: 'Schedules' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];

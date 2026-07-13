@@ -17,6 +17,10 @@ app.use('/api/backups', require('./routes/backups'));
 app.use('/api/restore', require('./routes/restore'));
 app.use('/api/schedules', require('./routes/schedules'));
 app.use('/api/settings', require('./routes/settings'));
+app.use('/api/remote-connections', require('./routes/remoteConnections'));
+app.use('/api/remote-backups', require('./routes/remoteBackups'));
+app.use('/api/db-connections', require('./routes/dbConnections'));
+app.use('/api/db-backups', require('./routes/dbBackups'));
 
 app.use(express.static(config.frontendPath));
 app.get('*', (req, res) => {
