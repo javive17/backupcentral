@@ -1,6 +1,6 @@
-const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const archiver = require('archiver');
 const config = require('../config');
 const portainer = require('./portainer');
 const db = require('../db');
@@ -23,52 +23,62 @@ async function restoreBackup(restoreLogId, backupId, targetPortainerUrl) {
     const targetUrl = targetPortainerUrl || config.portainer.url;
     const token = await getTargetToken(targetUrl);
 
-    let endpointId = null;
     const endpoints = await getTargetEndpoints(targetUrl, token);
-    if (endpoints.length > 0) endpointId = endpoints[0].Id;
+    let endpointId = null;
+    if (Array.isArray(endpoints)) {
+      endpointId = endpoints[0]?.Id;
+    } else if (endpoints?.value?.length) {
+      endpointId = endpoints.value[0].Id;
+    }
+    if (!endpointId) throw new Error('No endpoint found on target');
 
-    if (manifest.includeImage) {
-      const imageFiles = fs.readdirSync(backup.backup_path).filter(f => f.startsWith('image_') && f.endsWith('.tar'));
-      for (const imgFile of imageFiles) {
-        const imgPath = path.join(backup.backup_path, imgFile);
-        try {
-          execSync(`docker load -i "${imgPath}"`, { timeout: 600000 });
-          console.log(`Image loaded from ${imgFile}`);
-        } catch (e) {
-          console.error(`Failed to load image ${imgFile}: ${e.message}`);
-        }
+    const containerPortainerId = manifest.containerPortainerId;
+    const containerConfigPath = path.join(backup.backup_path, 'container_config.json');
+    let containerConfig = null;
+    if (fs.existsSync(containerConfigPath)) {
+      containerConfig = JSON.parse(fs.readFileSync(containerConfigPath, 'utf-8'));
+    }
+
+    if (manifest.includeImage && containerConfig) {
+      try {
+        const inspect = await portainer.getContainerInspect(endpointId, containerPortainerId);
+        console.log(`Container ${containerConfig.Name} already exists, will recreate from backup`);
+      } catch (e) {
+        console.log(`Container not found on target, will create from config`);
       }
     }
 
     if (manifest.includeVolumes) {
       const volumesDir = path.join(backup.backup_path, 'volumes');
       if (fs.existsSync(volumesDir)) {
-        const volFiles = fs.readdirSync(volumesDir).filter(f => f.endsWith('.tar.gz'));
-        for (const volFile of volFiles) {
-          const volPath = path.join(volumesDir, volFile);
-          const volName = volFile.replace('.tar.gz', '');
+        const volumeMapPath = path.join(backup.backup_path, 'volume_map.json');
+        let volumeMap = {};
+        if (fs.existsSync(volumeMapPath)) {
+          volumeMap = JSON.parse(fs.readFileSync(volumeMapPath, 'utf-8'));
+        }
+        const volDirs = fs.readdirSync(volumesDir, { withFileTypes: true }).filter(d => d.isDirectory());
+        for (const volDir of volDirs) {
+          const volPath = path.join(volumesDir, volDir.name);
+          const containerMountPath = volumeMap[volDir.name] || volDir.name.replace(/^_/, '/');
           try {
-            execSync(
-              `tar -xzf "${volPath}" -C "${config.backup.dockerData}"`,
-              { timeout: 600000 }
-            );
-            console.log(`Volume ${volName} restored`);
+            console.log(`Restoring volume ${volDir.name} -> ${containerMountPath}`);
+            const tarData = await createTarFromDir(volPath);
+            await uploadArchiveToContainer(targetUrl, token, endpointId, containerPortainerId, containerMountPath, tarData);
+            console.log(`Volume ${volDir.name} restored`);
           } catch (e) {
-            console.error(`Failed to restore volume ${volName}: ${e.message}`);
+            console.error(`Failed to restore volume ${volDir.name}: ${e.message}`);
           }
         }
       }
     }
 
-    if (manifest.includeConfigs) {
-      const configPath = path.join(backup.backup_path, 'container_config.json');
-      if (fs.existsSync(configPath)) {
-        const containerConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-
+    if (manifest.includeConfigs && containerConfig) {
+      const labels = containerConfig.Config?.Labels || {};
+      const stackName = labels['com.docker.compose.project'];
+      if (stackName) {
         const composePath = path.join(backup.backup_path, 'docker-compose.yml');
-        if (fs.existsSync(composePath) && containerConfig.Config?.Labels?.['com.docker.compose.project']) {
-          const stackName = containerConfig.Config.Labels['com.docker.compose.project'];
-          console.log(`Stack "${stackName}" compose file available for redeployment`);
+        if (fs.existsSync(composePath)) {
+          console.log(`Compose file available for stack "${stackName}" redeployment`);
         }
       }
     }
@@ -88,16 +98,45 @@ async function restoreBackup(restoreLogId, backupId, targetPortainerUrl) {
   }
 }
 
+function createTarFromDir(dirPath) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    const archive = archiver('tar', { gzip: false });
+    archive.on('data', chunk => chunks.push(chunk));
+    archive.on('end', () => resolve(Buffer.concat(chunks)));
+    archive.on('error', reject);
+    archive.glob('**/*', { cwd: dirPath, dot: true });
+    archive.finalize();
+  });
+}
+
+async function uploadArchiveToContainer(targetUrl, token, endpointId, containerId, containerPath, tarBuffer) {
+  const axios = require('axios');
+  await axios.put(
+    `${targetUrl}/api/endpoints/${endpointId}/docker/containers/${containerId}/archive?path=${encodeURIComponent(containerPath)}`,
+    tarBuffer,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/x-tar',
+      },
+      timeout: 300000,
+    }
+  );
+}
+
 async function getTargetToken(targetUrl) {
-  const res = require('axios').post(`${targetUrl}/api/auth`, {
+  const axios = require('axios');
+  const res = await axios.post(`${targetUrl}/api/auth`, {
     Username: config.portainer.user,
     Password: config.portainer.password,
   });
-  return (await res).data.jwt;
+  return res.data.jwt;
 }
 
 async function getTargetEndpoints(targetUrl, token) {
-  const res = require('axios').get(`${targetUrl}/api/endpoints`, {
+  const axios = require('axios');
+  const res = await axios.get(`${targetUrl}/api/endpoints`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   return res.data;

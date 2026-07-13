@@ -141,12 +141,14 @@ async function createBackup(backupId, containerPortainerId, options = {}) {
     if (includeVolumes && containerInfo.Mounts?.length) {
       const volumesDir = path.join(backupPath, 'volumes');
       ensureDir(volumesDir);
+      const volumeMap = {};
 
       for (const mount of containerInfo.Mounts) {
         if (mount.Type === 'volume' || mount.Type === 'bind') {
           const mountDest = mount.Destination;
           const volName = mount.Name || mountDest.replace(/[^a-zA-Z0-9._-]/g, '_');
           const volBackup = path.join(volumesDir, volName);
+          volumeMap[volName] = mountDest;
 
           try {
             console.log(`Fetching archive: ${containerName} -> ${mountDest}`);
@@ -164,6 +166,7 @@ async function createBackup(backupId, containerPortainerId, options = {}) {
           }
         }
       }
+      fs.writeFileSync(path.join(backupPath, 'volume_map.json'), JSON.stringify(volumeMap, null, 2));
     }
 
     if (includeFilesystem) {
