@@ -79,6 +79,7 @@ export const api = {
     update: (id, data) => request(`/remote-connections/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id) => request(`/remote-connections/${id}`, { method: 'DELETE' }),
     test: (id) => request(`/remote-connections/${id}/test`, { method: 'POST' }),
+    browse: (id, path) => request(`/remote-connections/${id}/browse?path=${encodeURIComponent(path || '')}`),
   },
   remoteBackups: {
     list: (params = {}) => {

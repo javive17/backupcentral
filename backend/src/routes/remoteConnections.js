@@ -90,4 +90,17 @@ router.post('/:id/test', auth, async (req, res) => {
   }
 });
 
+router.get('/:id/browse', auth, async (req, res) => {
+  try {
+    const conn = await db.queryOne('SELECT * FROM remote_connections WHERE id=?', [req.params.id]);
+    if (!conn) return res.status(404).json({ error: 'Connection not found' });
+
+    const remotePath = req.query.path || '/home/' + conn.username;
+    const items = await remoteBackup.listRemoteDirectory(conn, remotePath);
+    res.json({ path: remotePath, items });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

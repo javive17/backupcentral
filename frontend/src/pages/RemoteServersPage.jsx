@@ -67,8 +67,145 @@ function ConnectionModal({ connection, onClose, onSaved }) {
 }
 
 function BackupModal({ connection, onClose, onSaved }) {
-  const [remotePath, setRemotePath] = useState('/home');
+  const [remotePath, setRemotePath] = useState('/home/' + connection.username);
   const [saving, setSaving] = useState(false);
+  const [browsing, setBrowsing] = useState(false);
+  const [items, setItems] = useState([]);
+  const [currentBrowsePath, setCurrentBrowsePath] = useState('');
+  const [browseError, setBrowseError] = useState('');
+
+  async function browse(path) {
+    try {
+      setBrowsing(true);
+      setBrowseError('');
+      const result = await api.remoteConnections.browse(connection.id, path);
+      setCurrentBrowsePath(result.path);
+      setItems(result.items);
+      setRemotePath(result.path);
+    } catch (err) {
+      setBrowseError(err.message);
+    } finally {
+      setBrowsing(false);
+    }
+  }
+
+  function navigateTo(item) {
+    if (item.isDir) {
+      const newPath = currentBrowsePath === '/' ? '/' + item.name : currentBrowsePath + '/' + item.name;
+      browse(newPath);
+    }
+  }
+
+  function goUp() {
+    if (currentBrowsePath === '/') return;
+    const parent = currentBrowsePath.split('/').slice(0, -1).join('/') || '/';
+    browse(parent);
+  }
+
+  useEffect(() => { browse('/home/' + connection.username); }, []);
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold">Backup from {connection.name}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-200"><X className="w-5 h-5" /></button>
+        </div>
+
+        <div className="flex-1 min-h-0 flex flex-col gap-4">
+          <div className="flex items-center gap-2">
+            <label className="label mb-0 shrink-0">Backup Path</label>
+            <input
+              className="input-field font-mono text-sm flex-1"
+              value={remotePath}
+              onChange={(e) => setRemotePath(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') browse(remotePath); }}
+              placeholder="/var/www"
+            />
+            <button onClick={() => browse(remotePath)} disabled={browsing} className="btn-secondary text-xs shrink-0">
+              {browsing ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Go'}
+            </button>
+          </div>
+
+          <div className="flex-1 min-h-0 border border-gray-700 rounded-lg overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-3 py-2 bg-gray-800 border-b border-gray-700">
+              <div className="flex items-center gap-1 text-xs">
+                <button onClick={() => browse('/')} className="px-1.5 py-0.5 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200">/</button>
+                {currentBrowsePath !== '/' && currentBrowsePath.split('/').filter(Boolean).map((seg, i, arr) => {
+                  const fullPath = '/' + arr.slice(0, i + 1).join('/');
+                  return (
+                    <span key={i} className="flex items-center gap-1">
+                      <span className="text-gray-600">/</span>
+                      <button onClick={() => browse(fullPath)} className="px-1.5 py-0.5 rounded hover:bg-gray-700 text-gray-300 hover:text-white">{seg}</button>
+                    </span>
+                  );
+                })}
+              </div>
+              {currentBrowsePath !== '/' && (
+                <button onClick={goUp} className="text-xs text-gray-400 hover:text-gray-200 px-2 py-0.5 rounded hover:bg-gray-700">
+                  ..
+                </button>
+              )}
+            </div>
+
+            <div className="flex-1 overflow-y-auto max-h-64 p-1">
+              {browseError ? (
+                <div className="text-red-400 text-sm p-3">{browseError}</div>
+              ) : browsing && items.length === 0 ? (
+                <div className="text-gray-500 text-sm p-3 flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Loading...
+                </div>
+              ) : items.length === 0 ? (
+                <div className="text-gray-500 text-sm p-3">Empty directory</div>
+              ) : (
+                <div className="space-y-0.5">
+                  {items.filter(i => i.isDir).map((item) => (
+                    <button
+                      key={item.name}
+                      onClick={() => navigateTo(item)}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 rounded text-left text-sm transition-colors ${
+                        remotePath === (currentBrowsePath === '/' ? '/' + item.name : currentBrowsePath + '/' + item.name)
+                          ? 'bg-brand-600/30 text-brand-300'
+                          : 'hover:bg-gray-800 text-gray-300'
+                      }`}
+                    >
+                      <FolderOpen className="w-4 h-4 text-brand-400 shrink-0" />
+                      <span className="truncate">{item.name}</span>
+                      <span className="ml-auto text-xs text-gray-600 shrink-0">{item.permissions}</span>
+                    </button>
+                  ))}
+                  {items.filter(i => !i.isDir).length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-gray-800">
+                      <p className="text-xs text-gray-600 px-3 mb-1">{items.filter(i => !i.isDir).length} files</p>
+                      {items.filter(i => !i.isDir).map((item) => (
+                        <div
+                          key={item.name}
+                          className="flex items-center gap-2 px-3 py-1 rounded text-sm text-gray-500"
+                        >
+                          <span className="w-4 h-4 shrink-0 text-center text-xs">-</span>
+                          <span className="truncate">{item.name}</span>
+                          <span className="ml-auto text-xs text-gray-600 shrink-0">{item.permissions}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <p className="text-xs text-gray-500">Select a directory above or type a path, then click Start Backup.</p>
+        </div>
+
+        <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-800">
+          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          <button onClick={startBackup} disabled={saving || !remotePath} className="btn-success flex items-center gap-2">
+            <Play className="w-4 h-4" /> {saving ? 'Starting...' : 'Start Backup'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   async function startBackup() {
     try {
@@ -82,30 +219,6 @@ function BackupModal({ connection, onClose, onSaved }) {
       setSaving(false);
     }
   }
-
-  return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold">Backup from {connection.name}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-200"><X className="w-5 h-5" /></button>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <label className="label">Remote Path</label>
-            <input className="input-field font-mono" value={remotePath} onChange={(e) => setRemotePath(e.target.value)} placeholder="/var/www" />
-            <p className="text-xs text-gray-500 mt-1">Directory to backup on {connection.host}</p>
-          </div>
-        </div>
-        <div className="flex justify-end gap-3 mt-6">
-          <button onClick={onClose} className="btn-secondary">Cancel</button>
-          <button onClick={startBackup} disabled={saving || !remotePath} className="btn-success flex items-center gap-2">
-            <Play className="w-4 h-4" /> {saving ? 'Starting...' : 'Start Backup'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export default function RemoteServersPage() {
