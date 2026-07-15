@@ -139,11 +139,14 @@ async function createBackup(backupId, connectionId, remotePath) {
     const conn = await createSshConnection(connRow);
 
     await new Promise((resolve, reject) => {
-      conn.exec(`mkdir -p /tmp/bc_backup_${timestamp} && tar cf /tmp/bc_backup_${timestamp}.tar -C ${remotePath} . 2>&1`, (err, stream) => {
-        if (err) { conn.end(); return reject(err); }
+      const timeout = setTimeout(() => { conn.end(); reject(new Error('Backup timed out after 30 minutes')); }, 30 * 60 * 1000);
+      conn.exec(`tar cf /tmp/bc_backup_${timestamp}.tar -C "${remotePath}" . 2>&1`, (err, stream) => {
+        if (err) { clearTimeout(timeout); conn.end(); return reject(err); }
         let stderr = '';
+        stream.on('data', () => {});
         stream.stderr.on('data', (d) => { stderr += d.toString(); });
         stream.on('close', (code) => {
+          clearTimeout(timeout);
           if (code !== 0) { conn.end(); return reject(new Error(`tar failed: ${stderr}`)); }
           resolve();
         });
